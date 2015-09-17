@@ -1,0 +1,3 @@
+printf-stdarg.o
+libc.o
+xtensa_vectors.o

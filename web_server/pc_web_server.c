@@ -16,17 +16,23 @@
 #define PORT 80
 #define MAXDATASIZE 1024
 
+typedef int bool;
+#define true  1
+#define TRUE  1
+#define false 0
+#define FALSE 0
+
 typedef struct __HTML_Input_Tag
 {
     char *name;
     char *type;
-    char *value;  
+    char *value;
+    char value_len;     
     char *size;
     char *maxlength;
     char *style;
     char *extra;
 }HTML_Input_Tag;
-
 
 const static char http_html_hdr[] = "HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n";
 
@@ -46,6 +52,7 @@ HTML_Input_Tag Input_01 = {
     .name  = "ssid",
     .type  = "text",
     .value = "",
+    .value_len = 0,
     .size = "9",
     .maxlength = "50",
     .style = "height: 22px; width: 152px",
@@ -56,6 +63,7 @@ HTML_Input_Tag Input_02 = {
     .name  = "pass",
     .type  = "password",
     .value = "",
+    .value_len = 0,    
     .size = "9",
     .maxlength = "50",
     .style = "height: 22px; width: 152px",
@@ -66,6 +74,7 @@ HTML_Input_Tag Button_01 = {
     .name  = "Save",
     .type  = "submit",
     .value = "Save",
+    .value_len = 4,
     .size = "",
     .maxlength = "",
     .style = "height: 22px; width: 68px",
@@ -76,29 +85,67 @@ HTML_Input_Tag Button_02 = {
     .name  = "Reboot",
     .type  = "submit",
     .value = "Reboot",
+    .value_len = 6,
     .size = "",
     .maxlength = "",
     .style = "height: 22px; width: 68px",
     .extra = "</p>" 
 };
 
-const static char http_index_html[] = "<html> \
-<head> \
-<meta http-equiv=\"Content-Type\" content=\"text/html;charset=ISO-8859-1\"> \
-<title>NETWORK CONFIGURATION</title> \
-</head> \
-<body bgcolor=\"#ffffff\"> \
-<h1>NETWORK SETTING</h1> \
-<FORM ACTION=\"\" METHOD=\"GET\"> \
-<p><span style=\"font-size: 20px\">SSID&nbsp;</span>&nbsp; \
-<input maxlength=\"50\" name=\"ssid\" value=\"\" size=\"9\" style=\"height: 22px; width: 152px\" type=\"text\" /></p> \
-<p align=\"left\"><span style=\"font-size: 20px\">PASS</span>&nbsp; \
-<input type=\"password\" maxlength=\"50\" name=\"pass\" value=\"\" size=\"9\" style=\"height: 22px; width: 152px\" type=\"text\" /></p> \
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; \
-<input name=\"Save\" style=\"height: 22px; width: 68px\" type=\"submit\" value=\"Save\" />&nbsp;&nbsp;&nbsp; \
-<input name=\"Reboot\" style=\"height: 22px; width: 68px\" type=\"submit\" value=\"Reboot\" /></p> \
-</body> \
-</html>";
+void Read_Input(HTML_Input_Tag *input, char *str)
+{
+    char *temp;
+    char i = 0;
+    
+    temp = strstr(str, input->name);
+    temp = strstr(temp, "=");
+    
+    if (temp != NULL)
+    {
+        temp= temp + 1;      
+        while(temp[i] !='&')
+        {
+            i++;
+        }
+        if(i > 0)
+        {
+            input->value = temp;
+            input->value_len = i;
+        }
+        else
+        {
+            input->value = "";
+            input->value_len = 0;
+        }
+    }    
+}
+
+bool Button_Press_Event(HTML_Input_Tag *button, char *str)
+{
+    char *temp;
+    
+    temp = strstr(str, button->name);
+    
+    /* Check button press */
+    if(temp != NULL)
+    {
+        if(strstr(temp, button->value) != NULL)
+        {
+            printf("Button %s press\r\n", button->name);
+            Read_Input(&Input_01, str);
+            Read_Input(&Input_02, str);
+            return TRUE;
+        }
+        else
+        {
+            return FALSE;
+        }
+    }
+    else
+    {
+        return FALSE;
+    }
+}
 
 /*************************************************************************************
   Function name : send_msg ()
@@ -142,6 +189,35 @@ int send_msg (int fd, char *msg)
     return 0; /* successful */
 }
 
+int send_msg_with_len (int fd, char *msg, char len)
+{
+	int numbytes, sent;	        /* Number of byte send   */
+    int total;
+
+    total = (int)len;
+    sent = 0;
+
+    do 
+    {
+        /* Send file to host */
+        if ((numbytes = send (fd, msg + sent, total - sent, 0)) < 0)
+        { 
+            printf("send() error\n");
+            return -1; 
+        }    
+        else if (numbytes == 0)
+        {   
+            break;
+        }
+        
+        sent += numbytes;
+    
+    } while (sent < total);
+    
+    return 0; /* successful */
+}
+
+
 void print_tag(int fd, HTML_Input_Tag *pTag)
 {
     send_msg(fd, " <input ");
@@ -152,7 +228,7 @@ void print_tag(int fd, HTML_Input_Tag *pTag)
     send_msg(fd, pTag->type);
     send_msg(fd, "\"");    
     send_msg(fd, " value=\"");
-    send_msg(fd, pTag->value);
+    send_msg_with_len(fd, pTag->value, pTag->value_len);
     send_msg(fd, "\"");    
     send_msg(fd, " maxlength=\"");
     send_msg(fd, pTag->maxlength);
@@ -299,6 +375,9 @@ int main (int argc, char *argv[])
         printf("Data:\r\n");
         printf("%s\r\n", buf);
         
+        Button_Press_Event(&Button_01, buf);
+        Button_Press_Event(&Button_02, buf);
+        
         if (
              (len >= 5 && buf[0] == 'G' && buf[1] == 'E' && buf[2] == 'T' && buf[3] == ' ' && buf[4] == '/' ) ||
              (len >= 5 && buf[0] == 'P' && buf[1] == 'O' && buf[2] == 'S' && buf[3] == 'T')
@@ -307,8 +386,6 @@ int main (int argc, char *argv[])
             printf("HTTP Request OK\n");
             
             /* send to the client welcome message */ 
-            //send_msg (cfd, (char *)http_html_hdr);
-            //send_msg (cfd, (char *)http_index_html);
             print_web_page(cfd);
             
         }              

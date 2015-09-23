@@ -350,28 +350,20 @@ bool Button_Press_Event(HTML_Input_Tag *button, char *str)
 }
 
 /*************************************************************************************
-  Function name : send_msg ()
+  Function name : send_str ()
   Description   : Send message
   Parametter    : int fd, const char *msg
   Return        : void
-  Key word      : @Function send_msg
+  Key word      : @Function send_str
   Author        : kamejoko80             
 *************************************************************************************/
-int send_msg (int fd, char *msg)
+int send_str (int fd, char *msg)
 {
 	unsigned int numbytes, sent;   /* Number of byte send   */
     unsigned int total;
 
     total = strlen (msg);
-    printf("total = %d\r\n", total);
-    
     sent = 0;
-
-#if 0 /* Test message output */    
-    
-    printf("%s", msg);
-    
-#else
     do 
     {
         /* Send file to host */
@@ -388,12 +380,11 @@ int send_msg (int fd, char *msg)
         sent += numbytes;
     
     } while (sent < total);
-#endif    
     
     return 0; /* successful */
 }
 
-int send_msg_with_len (int fd, char *msg, unsigned int len)
+int send_data (int fd, char *msg, unsigned int len)
 {
 	unsigned int numbytes, sent;	        /* Number of byte send   */
     unsigned int total;
@@ -424,46 +415,46 @@ int send_msg_with_len (int fd, char *msg, unsigned int len)
 
 void print_tag(int fd, HTML_Input_Tag *pTag)
 {
-    send_msg(fd, " <input ");
-    send_msg(fd, " name=\"");
-    send_msg(fd, pTag->name);
-    send_msg(fd, "\"");
-    send_msg(fd, " type=\"");
-    send_msg(fd, pTag->type);
-    send_msg(fd, "\"");    
-    send_msg(fd, " value=\"");
-    send_msg_with_len(fd, pTag->value, pTag->value_len);
-    send_msg(fd, "\"");    
-    send_msg(fd, " maxlength=\"");
-    send_msg(fd, pTag->maxlength);
-    send_msg(fd, "\"");    
-    send_msg(fd, " style=\"");
-    send_msg(fd, pTag->style);
-    send_msg(fd, "\"");
-    send_msg(fd, " />");    
-    send_msg(fd,pTag->extra);    
+    send_str(fd, " <input ");
+    send_str(fd, " name=\"");
+    send_str(fd, pTag->name);
+    send_str(fd, "\"");
+    send_str(fd, " type=\"");
+    send_str(fd, pTag->type);
+    send_str(fd, "\"");    
+    send_str(fd, " value=\"");
+    send_data(fd, pTag->value, pTag->value_len);
+    send_str(fd, "\"");    
+    send_str(fd, " maxlength=\"");
+    send_str(fd, pTag->maxlength);
+    send_str(fd, "\"");    
+    send_str(fd, " style=\"");
+    send_str(fd, pTag->style);
+    send_str(fd, "\"");
+    send_str(fd, " />");    
+    send_str(fd,pTag->extra);    
 }
 
 void print_web_page(int fd)
 {
-    send_msg (fd, (char *)http_html_hdr);
-    send_msg (fd, (char *)http_wb_begin);
+    send_str (fd, (char *)http_html_hdr);
+    send_str (fd, (char *)http_wb_begin);
     print_tag(fd, &Input_01);
     print_tag(fd, &Input_02);
     print_tag(fd, &Button_01);
     print_tag(fd, &Button_02);
-    send_msg (fd, (char *)http_wb_end); 
+    send_str (fd, (char *)http_wb_end); 
 }
 
 /*************************************************************************************
-  Function name : recv_msg ()
+  Function name : recv_data ()
   Description   : Receive text message from the host
   Parametter    : 
   Return        : numbytes if success, -1 failed
-  Key word      : @Function recv_msg
+  Key word      : @Function recv_data
   Author        : kamejoko80             
 *************************************************************************************/
-int recv_msg (int fd, char *buf)
+int recv_data (int fd, char *buf)
 {
 	int numbytes;	        /* Number of byte received */
 	
@@ -569,9 +560,9 @@ int main (int argc, char *argv[])
         printf("You got a connection from %s\n",inet_ntoa(client.sin_addr)); 
 	         
         /* Receive request */
-        if ((len = recv_msg (cfd, buf)) == -1)
+        if ((len = recv_data (cfd, buf)) == -1)
         {
-            printf("recv_msg() error\n");
+            printf("recv_data() error\n");
             return;
         }        
         
@@ -585,8 +576,8 @@ int main (int argc, char *argv[])
         if(strstr(buf, "scan_icon.png") != NULL)
         {
             printf("SEND IMAGE\n");
-            send_msg(cfd, (char *)http_image_hdr);
-            send_msg_with_len(cfd, (char *)scan_icon_png, sizeof(scan_icon_png));
+            send_str(cfd, (char *)http_image_hdr);
+            send_data(cfd, (char *)scan_icon_png, sizeof(scan_icon_png));
         }
         else if (
                    (len >= 5 && buf[0] == 'G' && buf[1] == 'E' && buf[2] == 'T' && buf[3] == ' ' && buf[4] == '/' ) ||
